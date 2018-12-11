@@ -7,6 +7,10 @@ def safe_div(x, y):
     return float(x) / float(y)
 
 
+def safe_percentage(x, y):
+    return safe_div(x, y) * 100
+
+
 class ChartMaker():
     bar_chart = []
     all_cases = None

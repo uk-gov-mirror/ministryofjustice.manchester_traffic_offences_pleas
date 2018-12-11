@@ -8,10 +8,12 @@ from django.shortcuts import render
 from django.views import View
 from django.urls import reverse, reverse_lazy
 from ..plea.models import UsageStats, CaseTracker
-from .charts import RequiredStagesChart, FinancialSituationChart, HardshipChart, AllStagesDropoutsChart, IncomeSourcesDropoutsChart
+from ..feedback.models import UserRating
+from .charts import RequiredStagesChart, FinancialSituationChart,\
+    HardshipChart, AllStagesDropoutsChart, IncomeSourcesDropoutsChart
 from django.db.models import Value, Sum
 import datetime
-
+from .charts import safe_percentage
 # Create your views here.
 
 @login_required(login_url=settings.ADMIN_LOGIN_URL)
@@ -54,6 +56,14 @@ class StageMixin(object):
         self.report_description = "A statistical analysis of stage progression"
 
 
+class UserRatingMixin(object):
+
+    def initialize_get(self, request):
+        self.report_name = "User rating report"
+        self.report_url = reverse("reports:rating_report")
+        self.report_description = "An analysis of service user ratings"
+
+
 class PleaReportEntry(PleaMixin, ReportEntryView):
     pass
 
@@ -62,9 +72,15 @@ class StageReportEntry(StageMixin, ReportEntryView):
     pass
 
 
+class RatingReportEntry(UserRatingMixin, ReportEntryView):
+    pass
+
+
 class BaseReportView(ReportEntryView):
     report_partial = None
     template = "report_base.html"
+    start_date = None
+    end_date = None
 
     def get_context_data(self, request):
         current_context_data = super(BaseReportView, self).get_context_data(request)
@@ -75,6 +91,19 @@ class BaseReportView(ReportEntryView):
     def prepare_report_context(self, request):
         pass
 
+    def set_start_end_dates(self, request):
+        if 'start_date' in request.GET:
+            try:
+                self.start_date = datetime.datetime.strptime(request.GET['start_date'], '%d/%m/%Y').date()
+            except ValueError:
+                self.start_date = None
+
+        if 'end_date' in request.GET:
+            try:
+                self.end_date = datetime.datetime.strptime(request.GET['end_date'], '%d/%m/%Y').date()
+            except ValueError:
+                self.end_date = None
+
 
 class PleaReportView(PleaMixin, BaseReportView):
 
@@ -82,29 +111,19 @@ class PleaReportView(PleaMixin, BaseReportView):
 
     def prepare_report_context(self, request):
         # Ensure correct start and end dates for report
-        if 'start_date' in request.GET:
-            try:
-                start_date = datetime.datetime.strptime(request.GET['start_date'], '%d/%m/%Y').date()
-            except ValueError:
-                start_date = None
 
-        if 'end_date' in request.GET:
-            try:
-                end_date = datetime.datetime.strptime(request.GET['end_date'], '%d/%m/%Y').date()
-            except ValueError:
-                end_date = None
         change_date = datetime.date(day=21,month=5,year=2018)
         qs = UsageStats.objects.all()
         late_end_date = True  # Set to true if end date is after 21st May
         early_start_date = True
-        if start_date:
-            qs = qs.filter(start_date__gte=start_date)
-            start_date = start_date.date()
+        if self.start_date:
+            qs = qs.filter(start_date__gte=self.start_date)
+            start_date = self.start_date.date()
             if start_date > change_date:
                 early_start_date = False
-        if end_date:
-            qs = qs.filter(start_date__lt=end_date)
-            end_date = end_date.date()
+        if self.end_date:
+            qs = qs.filter(start_date__lt=self.end_date)
+            end_date = self.end_date.date()
             if end_date < change_date:
                 late_end_date = False
         pre_qs = qs.filter(start_date__lt=change_date)
@@ -170,31 +189,18 @@ class StageReportView(StageMixin, BaseReportView):
                     (reverse_lazy("reports:income_sources_dropouts_report"), "Income sources dropouts",
                      "The probability of dropping out after"
                      " selecting (self)employed/receiving out-of-work benefits/other"))
-    start_date = None
-    end_date = None
-    chart_name = "the required stages"
+    chart_name = "Required stages"
 
     def call_correct_chart(self):
         return RequiredStagesChart(self.start_date, self.end_date)
 
     def prepare_report_context(self, request):
         # Ensure correct start and end dates for report
-        if 'start_date' in request.GET:
-            try:
-                start_date = datetime.datetime.strptime(request.GET['start_date'], '%d/%m/%Y').date()
-            except ValueError:
-                start_date = None
-
-        if 'end_date' in request.GET:
-            try:
-                end_date = datetime.datetime.strptime(request.GET['end_date'], '%d/%m/%Y').date()
-            except ValueError:
-                end_date = None
-
+        self.set_start_end_dates(request)
         bar_chart = self.call_correct_chart()
         return {
-            'start_date': start_date,
-            'end_date': end_date,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
             'case_count': bar_chart.get_case_count(),
             'complete_count': bar_chart.get_complete_count(),
             'completion_percentage': bar_chart.get_completion_percentage(),
@@ -236,3 +242,40 @@ class IncomeSourcesDropoutsView(StageReportView):
 
     def call_correct_chart(self):
         return IncomeSourcesDropoutsChart(self.start_date, self.end_date)
+
+
+class RatingReportView(UserRatingMixin, BaseReportView):
+    report_partial = "partials/rating_report_contents.html"
+    chart_name = "User ratings"
+
+    def prepare_report_context(self, request):
+        self.set_start_end_dates(request)
+        qs = UserRating.objects.all()
+        if self.start_date:
+            qs = UserRating.filter(timestamp__gte=self.start_date)
+        if self.end_date:
+            qs = UserRating.filter(timestamp__lte=self.end_date)
+        tot_count = qs.count()
+        vdis_count = qs.filter(service_rating=1).count()
+        dis_count = qs.filter(service_rating=2).count()
+        neither_count = qs.filter(service_rating=3).count()
+        sat_count = qs.filter(service_rating=4).count()
+        vsat_count = qs.filter(service_rating=5).count()
+        bar_chart = [["Very dissatisfied", vdis_count],
+                    ["Dissatisfied", dis_count],
+                    ["Neither satisfied nor dissatisfied", neither_count],
+                    ["Satisfied", sat_count],
+                    ["Very satisfied", vsat_count]]
+        rating_number_array = [vdis_count, dis_count, neither_count, sat_count, vsat_count]
+        rating_percentage_array = [safe_percentage(vdis_count, tot_count), safe_percentage(dis_count, tot_count),
+                                   safe_percentage(neither_count, tot_count), safe_percentage(sat_count, tot_count),
+                                   safe_percentage(vsat_count, tot_count)]
+        return {
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'bar_chart': bar_chart,
+            "no_of_responses": tot_count,
+            'no_of_each_response': rating_number_array,
+            'percentage_of_each_response': rating_percentage_array,
+            'chart_name': self.chart_name,
+        }

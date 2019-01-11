@@ -27,12 +27,17 @@ def prepare_word_array(word_array, word_limit):
 def handle_new_score(word_array, new_word_tuple):
     where_to_add = None
     should_update = False
+
     for i, existing_word_tuple in enumerate(word_array):
         if new_word_tuple[1] > existing_word_tuple[1]:
             should_update = True
             where_to_add = i + 1
+        else:
+            break
     if should_update:
         return amend_word_array(word_array, new_word_tuple, where_to_add)
+    else:
+        return word_array
 
 
 def amend_word_array(word_array, new_word_tuple, where_to_add):
@@ -49,15 +54,16 @@ class RatingScorer:
     ratings = None
     positive_word_array = []
     negative_word_array = []
-    word_limit = 5
+    word_limit = 20
 
     def __init__(self, start_date=None, end_date=None):
         # self.ratings = UserRating.objects.filter(last_update__gte=start_date).filter(last_update__lt=end_date)
-        self.ratings = UserRating.objects.filter(comments__isnull=False, service_rating__isnull=False)
+        self.ratings = UserRating.objects.filter(comments__isnull=False, service_rating__isnull=False).exclude(comments__exact='')
         self.rating_dict = {}
         self.positive_word_array = prepare_word_array(self.positive_word_array, self.word_limit)
         self.negative_word_array = prepare_word_array(self.negative_word_array, self.word_limit)
         self.ratings_to_dict()
+
         self.find_important_words()
 
     def ratings_to_dict(self):
@@ -69,7 +75,7 @@ class RatingScorer:
          1 dissatisfied, 4 neutral, 3 satisfied and 1 very satisfied service ratings.
         """
         for rating in self.ratings:
-            rating_words = split_iter(str(rating.comments))
+            rating_words = split_iter(rating.comments.encode('utf-8').lower())
             for word in rating_words:
                 if word not in self.words_and_ratings_count_dict:
                     self.add_new_word_to_dict(word)

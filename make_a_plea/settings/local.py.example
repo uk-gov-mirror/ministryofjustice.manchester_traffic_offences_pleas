@@ -1,11 +1,7 @@
 from base import *
 
-ALLOWED_HOSTS = ["*"]
 DEBUG = True
 
-ADMINS = (
-    ('A Developer', 'dev@example.org'),
-)
 
 DATABASES = {
     'default': {

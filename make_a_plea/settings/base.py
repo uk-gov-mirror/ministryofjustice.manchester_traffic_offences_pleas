@@ -2,7 +2,8 @@ import sys
 import os
 from os.path import join, abspath, dirname
 import logging
-
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 from django.utils.translation import ugettext_lazy as _
 
 VERSION = (1, 0, 0)
@@ -12,14 +13,8 @@ here = lambda *x: join(abspath(dirname(__file__)), *x)
 PROJECT_ROOT = here("..")
 root = lambda *x: join(abspath(PROJECT_ROOT), *x)
 
-DEBUG = True
+DEBUG = False
 template_DEBUG = DEBUG
-
-ADMINS = (
-    ('[DEV] HMCTS Reform Sustaining Support', 'sustainingteamdev@hmcts.net'),
-)
-
-MANAGERS = ADMINS
 
 DATABASES = {
     'default': {
@@ -35,7 +30,7 @@ DATABASES = {
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = '*'
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -155,10 +150,8 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'make_a_plea.middleware.AdminLocaleURLMiddleware',
     'make_a_plea.middleware.TimeoutRedirectMiddleware',
-    'make_a_plea.middleware.BadRequestExceptionMiddleware',
     'django.middleware.cache.FetchFromCacheMiddleware',
     'axes.middleware.FailedLoginMiddleware',
-    'django.middleware.common.BrokenLinkEmailsMiddleware'
 )
 
 CACHE_MIDDLEWARE_SECONDS = 0
@@ -205,81 +198,9 @@ INSTALLED_APPS = [
     'apps.reports',
     'django_premailer',
     'nested_admin',
-    'raven.contrib.django.raven_compat',
 ]
 
-# A sample logging configuration. The only tangible logging
-# performed by this configuration is to send an email to
-# the site admins on every HTTP 500 error when DEBUG=False.
-# See http://docs.djangoproject.com/en/dev/topics/logging for
-# more details on how to customize your logging configuration.
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': True,
-    'formatters': {
-        'verbose': {
-            'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
-        },
-        'simple': {
-            'format': '%(levelname)s %(message)s'
-        }
-    },
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse'
-        }
-    },
-    'handlers': {
-        'mail_admins': {
-            'level': 'ERROR',
-            'filters': ['require_debug_false'],
-            'class': 'django.utils.log.AdminEmailHandler'
-        },
-        'null': {
-            'level': 'DEBUG',
-            'class': 'logging.NullHandler',
-        },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple'
-        },
-        'sentry': {
-            'level': 'ERROR',
-            'filters': ['require_debug_false'],
-            'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
-            'tags': {'custom-tag': 'x'}
-        },
-    },
-    'loggers': {
-        '': {
-            'handlers': ['console', 'sentry'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'django.request': {
-            'handlers': ['mail_admins', 'console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'apps.plea.views': {
-            'handlers': ['console'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
-        'apps.plea.email': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'apps.plea.tasks': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    }
-}
-
+sentry_sdk.init(os.environ.get("SENTRY_DSN", ""), integrations=[DjangoIntegration()])
 
 INTERNAL_IPS = ['127.0.0.1']
 
@@ -341,11 +262,6 @@ FTP_SERVER_IP = os.environ.get("FTP_SERVER_IP", "")
 AXES_COOLOFF_TIME = 1
 
 DATA_RETENTION_PERIOD = int(os.environ.get("DATA_RETENTION_PERIOD", "140"))
-
-RAVEN_CONFIG = {
-    'dsn': os.environ.get("SENTRY_DSN", ""),
-    'release': os.environ.get("APP_GIT_COMMIT", "no-git-commit-available")
-}
 
 # .local.py overrides all the common settings.
 try:

@@ -2,13 +2,8 @@ import os
 
 from .base import *
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
-
 logging.disable(logging.CRITICAL)
 
-ADMINS = (
-    ('[DEV] HMCTS Reform Sustaining Support', 'sustainingteamdev@hmcts.net'),
-)
 
 DATABASES = {
     'default': {

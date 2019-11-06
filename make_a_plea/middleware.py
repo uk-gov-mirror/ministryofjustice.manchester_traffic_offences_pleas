@@ -45,16 +45,3 @@ class AdminLocaleURLMiddleware(object):
             request.LANG = getattr(settings, 'ADMIN_LANGUAGE_CODE', settings.LANGUAGE_CODE)
             translation.activate(request.LANG)
             request.LANGUAGE_CODE = request.LANG
-
-
-class BadRequestExceptionMiddleware(object):
-
-    def process_exception(self, request, e):
-        if isinstance(e, BadRequestException):
-            return HttpResponse(
-                json.dumps(
-                    {"error": e.message},
-                    indent=4),
-                status=400,
-                content_type="application/json",
-            )

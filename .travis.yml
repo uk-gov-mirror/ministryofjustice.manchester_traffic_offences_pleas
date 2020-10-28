@@ -6,7 +6,7 @@ addons:
     packages:
       - rabbitmq-server
 python:
-  - "3.6"
+  - "3.8"
 notifications:
   email: false
 services:

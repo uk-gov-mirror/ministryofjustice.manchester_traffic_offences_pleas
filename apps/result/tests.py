@@ -180,7 +180,7 @@ class ResultTestCase(TestCase):
 
         fines, _, _ = self.test_result1.get_offence_totals()
 
-        self.assertEquals(fines[0], u"english words £75.00 more english")
+        self.assertIn(u"english words £75.00 more english", fines)
 
     def test_get_offence_totals_fines_wording_welsh(self):
 
@@ -199,7 +199,7 @@ class ResultTestCase(TestCase):
 
         fines, _, _ = self.test_result1.get_offence_totals()
 
-        self.assertEquals(fines[0], u"I dalu costau o £75.00 welsh")
+        self.assertIn(u"I dalu costau o £75.00 welsh", fines)
 
     def test_get_offence_totals_fines_wording_welsh_but_no_welsh_text(self):
 
@@ -218,7 +218,7 @@ class ResultTestCase(TestCase):
 
         fines, _, _ = self.test_result1.get_offence_totals()
 
-        self.assertEquals(fines[0], u"english words £75.00 more english")
+        self.assertIn(u"english words £75.00 more english", fines)
 
     def test_get_offence_totals_fines_wording_welsh_but_whitespace_welsh_text(self):
 
@@ -237,7 +237,7 @@ class ResultTestCase(TestCase):
 
         fines, _, _ = self.test_result1.get_offence_totals()
 
-        self.assertEquals(fines[0], u"english words £75.00 more english")
+        self.assertIn(u"english words £75.00 more english", fines)
 
 
     def test_get_offence_totals_endorsements(self):
